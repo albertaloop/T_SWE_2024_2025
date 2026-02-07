@@ -1,0 +1,7 @@
+2026-01-18 21:34:46,333 [ERROR] LogOutputStream:75 - [STDERR_REDIRECT] Jan 18, 2026 9:34:46 PM java.util.prefs.FileSystemPreferences checkLockFile0ErrorCode
+2026-01-18 21:34:46,335 [ERROR] LogOutputStream:75 - [STDERR_REDIRECT] WARNING: Could not lock System prefs. Unix error code 2.
+2026-01-18 21:34:46,335 [ERROR] LogOutputStream:75 - [STDERR_REDIRECT] 
+2026-01-18 21:34:46,335 [ERROR] LogOutputStream:75 - [STDERR_REDIRECT] Jan 18, 2026 9:34:46 PM java.util.prefs.FileSystemPreferences syncWorld
+2026-01-18 21:34:46,335 [ERROR] LogOutputStream:75 - [STDERR_REDIRECT] WARNING: Couldn't flush system prefs: java.util.prefs.BackingStoreException: Couldn't get file lock.
+2026-01-18 21:34:46,335 [ERROR] LogOutputStream:75 - [STDERR_REDIRECT] 
+2026-01-18 21:34:52,680 [ERROR] LogOutputStream:75 - [STDERR_REDIRECT] SWT SessionManagerDBus: Failed to UnregisterClient: GDBus.Error:org.freedesktop.DBus.Error.NoReply: Message recipient disconnected from message bus without replying

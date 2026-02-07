@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<section name="Workbench">
+	<item key="hasShownOverlayPopupBefore" value="true"/>
+	<item key="replaceBarOpen" value="false"/>
+	<list key="searchhistory">
+		<item value="GPIO_IN"/>
+		<item value="CanRxQueue"/>
+		<item value="RxHeader"/>
+		<item value="CAN_msg_t"/>
+		<item value="CAN1_IN"/>
+		<item value="USART2"/>
+		<item value="PC13"/>
+	</list>
+</section>

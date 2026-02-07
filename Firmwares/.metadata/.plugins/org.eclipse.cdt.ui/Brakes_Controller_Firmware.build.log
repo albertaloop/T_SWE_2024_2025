@@ -1,0 +1,12 @@
+00:04:03 **** Build of configuration Debug for project Brakes_Controller_Firmware ****
+make -j16 all 
+arm-none-eabi-gcc "../Core/Src/main_app.c" -mcpu=cortex-m4 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32F446xx -c -I../Core/Inc -I../Drivers/STM32F4xx_HAL_Driver/Inc -I../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I../Drivers/CMSIS/Include -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"Core/Src/main_app.d" -MT"Core/Src/main_app.o" --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -o "Core/Src/main_app.o"
+../Core/Src/main_app.c:3:10: fatal error: cmsis_os.h: No such file or directory
+    3 | #include "cmsis_os.h" // Wrapper for FreeRTOS (Standard in STM32)
+      |          ^~~~~~~~~~~~
+compilation terminated.
+make: *** [Core/Src/subdir.mk:34: Core/Src/main_app.o] Error 1
+"make -j16 all" terminated with exit code 2. Build might be incomplete.
+
+00:04:04 Build Failed. 2 errors, 0 warnings. (took 361ms)
+
