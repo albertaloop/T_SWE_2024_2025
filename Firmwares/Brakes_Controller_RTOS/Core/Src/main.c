@@ -68,13 +68,6 @@ const osThreadAttr_t HeartBeatTask_attributes = {
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityBelowNormal,
 };
-/* Definitions for CanTask */
-osThreadId_t CanTaskHandle;
-const osThreadAttr_t CanTask_attributes = {
-  .name = "CanTask",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityBelowNormal,
-};
 /* Definitions for CANRxQueue */
 osMessageQueueId_t CANRxQueueHandle;
 const osMessageQueueAttr_t CANRxQueue_attributes = {
@@ -87,6 +80,8 @@ const osSemaphoreAttr_t StatusMutex_attributes = {
 };
 /* USER CODE BEGIN PV */
 
+uint8_t brakes_status = 1; // 1 = Disengaged, 0 = Engaged
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -96,15 +91,33 @@ static void MX_USART2_UART_Init(void);
 static void MX_CAN1_Init(void);
 void StartBrakeTask(void *argument);
 void StartHeartbeatTask(void *argument);
-void StartCanTask(void *argument);
 
 /* USER CODE BEGIN PFP */
+
+void Manage_Solenoids(uint8_t status);
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+#ifdef __GNUC__
+#define PUTCHAR_PROTOTYPE int __io_putchar(int ch)
+#else
+#define PUTCHAR_PROTOTYPE int fputc(int ch, FILE *f)
+#endif
 
+PUTCHAR_PROTOTYPE
+{
+  HAL_UART_Transmit(&huart2, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
+  return ch;
+}
+
+// Also override _write for newer versions of Newlib (Standard C Library)
+int _write(int file, char *ptr, int len)
+{
+  HAL_UART_Transmit(&huart2, (uint8_t *)ptr, len, HAL_MAX_DELAY);
+  return len;
+}
 /* USER CODE END 0 */
 
 /**
@@ -176,35 +189,32 @@ int main(void)
   /* creation of HeartBeatTask */
   HeartBeatTaskHandle = osThreadNew(StartHeartbeatTask, NULL, &HeartBeatTask_attributes);
 
-  /* creation of CanTask */
-  CanTaskHandle = osThreadNew(StartCanTask, NULL, &CanTask_attributes);
-
-    /* USER CODE BEGIN 2 */
-
-    // 1. Configure Filter (Required to receive anything!)
-    CAN_FilterTypeDef canfilterconfig;
-    canfilterconfig.FilterActivation = CAN_FILTER_ENABLE;
-    canfilterconfig.FilterBank = 0;
-    canfilterconfig.FilterFIFOAssignment = CAN_RX_FIFO0;
-    canfilterconfig.FilterIdHigh = 0x0000;
-    canfilterconfig.FilterIdLow = 0x0000;
-    canfilterconfig.FilterMaskIdHigh = 0x0000;
-    canfilterconfig.FilterMaskIdLow = 0x0000;
-    canfilterconfig.FilterMode = CAN_FILTERMODE_IDMASK;
-    canfilterconfig.FilterScale = CAN_FILTERSCALE_32BIT;
-    HAL_CAN_ConfigFilter(&hcan1, &canfilterconfig);
-
-    // 2. Start CAN Bus
-    HAL_CAN_Start(&hcan1);
-
-    // 3. Enable Interrupts
-    HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
-
-    /* USER CODE END 2 */
-
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
+
+  /* USER CODE BEGIN 2 */
+
+  // 1. Configure Filter (Required to receive anything!)
+  CAN_FilterTypeDef canfilterconfig;
+  canfilterconfig.FilterActivation = CAN_FILTER_ENABLE;
+  canfilterconfig.FilterBank = 0;
+  canfilterconfig.FilterFIFOAssignment = CAN_RX_FIFO0;
+  canfilterconfig.FilterIdHigh = 0x0000;
+  canfilterconfig.FilterIdLow = 0x0000;
+  canfilterconfig.FilterMaskIdHigh = 0x0000;
+  canfilterconfig.FilterMaskIdLow = 0x0000;
+  canfilterconfig.FilterMode = CAN_FILTERMODE_IDMASK;
+  canfilterconfig.FilterScale = CAN_FILTERSCALE_32BIT;
+  HAL_CAN_ConfigFilter(&hcan1, &canfilterconfig);
+
+  // 2. Start CAN Bus
+  HAL_CAN_Start(&hcan1);
+
+  // 3. Enable Interrupts
+  HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
+
+  /* USER CODE END 2 */
 
   /* USER CODE BEGIN RTOS_EVENTS */
   /* add events, ... */
@@ -379,6 +389,10 @@ static void MX_GPIO_Init(void)
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
+  /* ADD THIS: Configure GPIO pins : PB4 PB10 */
+    GPIO_InitStruct.Pin = GPIO_PIN_4|GPIO_PIN_10;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct); // <--- Don't forget this!
+
   /* USER CODE END MX_GPIO_Init_2 */
 }
 
@@ -396,11 +410,41 @@ static void MX_GPIO_Init(void)
 void StartBrakeTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
+	CAN_Msg_t receivedMsg;
+	char uart_buf[50];
   /* Infinite loop */
   for(;;)
   {
-	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
-    osDelay(1500);
+	  // Block (sleep) indefinitely until a message arrives in the Queue
+	  if (osMessageQueueGet(CANRxQueueHandle, &receivedMsg, NULL, osWaitForever) == osOK)
+	  {
+		// --- CRITICAL SECTION START ---
+		// We are about to change the shared variable
+		osSemaphoreAcquire(StatusMutexHandle, osWaitForever);
+
+		if (receivedMsg.StdId == 0x201)
+		{
+		  brakes_status = 0; // Engage
+		  printf("CMD: Engage (0x201)\r\n");
+		}
+		else if (receivedMsg.StdId == 0x202)
+		{
+		  brakes_status = 1; // Disengage
+		  printf("CMD: Disengage (0x202)\r\n");
+		}
+
+		// Update hardware immediately
+		Manage_Solenoids(brakes_status);
+
+//		printf("Brake Task Update: %d\r\n", brakes_status);
+
+		osSemaphoreRelease(StatusMutexHandle);
+		// --- CRITICAL SECTION END ---
+
+		// Print is now safe here (unlike in the ISR)
+		HAL_UART_Transmit(&huart2, (uint8_t*)uart_buf, strlen(uart_buf), 10);
+		HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5); // Blink LED
+	  }
   }
   osThreadTerminate(NULL);
   /* USER CODE END 5 */
@@ -415,49 +459,40 @@ void StartBrakeTask(void *argument)
 /* USER CODE END Header_StartHeartbeatTask */
 void StartHeartbeatTask(void *argument)
 {
-  /* Infinite loop */
-  for(;;)
-  {
-    // Toggle LED to show system is alive
-    HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+  /* USER CODE BEGIN StartHeartbeatTask */
 
-    // Send CAN Heartbeat (Reuse your CAN1_Tx logic here)
-    // CAN1_Tx();
+	CAN_TxHeaderTypeDef TxHeader;
+	uint32_t TxMailbox;
+	uint8_t current_status;
 
-    // Sleep for 1000ms
-    osDelay(1000);
-  }
-}
+	TxHeader.StdId = 0x299;
+	TxHeader.IDE = CAN_ID_STD;
+	TxHeader.RTR = CAN_RTR_DATA;
+	TxHeader.DLC = 1;
 
-/* USER CODE BEGIN Header_StartCanTask */
-/**
-* @brief Function implementing the CanTask thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_StartCanTask */
-void StartCanTask(void *argument)
-{
-  /* USER CODE BEGIN StartCanTask */
-  /* Infinite loop */
-	CAN_Msg_t received_msg;
+	for(;;)
+	{
+		// 1. Read the shared variable safely
+		osSemaphoreAcquire(StatusMutexHandle, osWaitForever);
+		current_status = brakes_status;
+		osSemaphoreRelease(StatusMutexHandle);
+		printf("Heartbeat Update: %d\r\n", current_status);
 
-	  for(;;)
-	  {
-	    // 1. Wait here until a message arrives (osWaitForever)
-	    osStatus_t status = osMessageQueueGet(CANRxQueueHandle, &received_msg, NULL, osWaitForever);
+		// 2. Send CAN Message
+		if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, &current_status, &TxMailbox) != HAL_OK)
+		{
+		  // Handle error (optional)
+		}
 
-	    if (status == osOK)
-	    {
-	       // 2. We got a message! Now we can process it slowly
-	       if(received_msg.StdId == 0x201)
-	       {
-	           // Do brake logic...
-	           printf("Brakes engaged via CAN ID 0x%lX\n", received_msg.StdId);
-	       }
-	    }
-	  }
-  /* USER CODE END StartCanTask */
+		HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+		osDelay(500);
+		HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+
+		// 3. Sleep for 5000ms
+		// Unlike HAL_Delay, this releases the CPU for other tasks!
+		osDelay(1000);
+	}
+  /* USER CODE END StartHeartbeatTask */
 }
 
 /**
@@ -500,6 +535,14 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
       // 3. Send to Queue (Timeout MUST be 0 in an ISR)
       osMessageQueuePut(CANRxQueueHandle, &msg_to_store, 0U, 0U);
   }
+}
+
+/*Helper to drive pins (Logic unchanged)*/
+void Manage_Solenoids(uint8_t state)
+{
+  GPIO_PinState pin_state = (state == 1) ? GPIO_PIN_SET : GPIO_PIN_RESET;
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8 | GPIO_PIN_9, pin_state);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4 | GPIO_PIN_10, pin_state);
 }
 
 /* USER CODE END 4 */

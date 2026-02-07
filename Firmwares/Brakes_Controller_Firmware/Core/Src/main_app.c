@@ -148,7 +148,7 @@ void SystemClock_Config_HSE(uint8_t clock_freq)
     flash_latency = 3;
     break;
 
-  default:
+  default:GPIO_Init
     return ;
   }
 

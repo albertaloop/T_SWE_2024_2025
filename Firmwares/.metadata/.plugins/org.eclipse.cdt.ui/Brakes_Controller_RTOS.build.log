@@ -1,10 +1,17 @@
-21:55:14 **** Incremental Build of configuration Debug for project Brakes_Controller_RTOS ****
+23:58:50 **** Incremental Build of configuration Debug for project Brakes_Controller_RTOS ****
 make -j16 all 
+arm-none-eabi-gcc "../Core/Src/main.c" -mcpu=cortex-m4 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32F446xx -c -I../Core/Inc -I../Drivers/STM32F4xx_HAL_Driver/Inc -I../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I../Drivers/CMSIS/Include -I../Middlewares/Third_Party/FreeRTOS/Source/include -I../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2 -I../Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"Core/Src/main.d" -MT"Core/Src/main.o" --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -o "Core/Src/main.o"
+arm-none-eabi-gcc -o "Brakes_Controller_RTOS.elf" @"objects.list"   -mcpu=cortex-m4 -T"/home/mahdlinux/STM32CubeIDE/T_SWE_2025_2026/Firmwares/Brakes_Controller_RTOS/STM32F446RETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Brakes_Controller_RTOS.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+Finished building target: Brakes_Controller_RTOS.elf
+ 
 arm-none-eabi-size  Brakes_Controller_RTOS.elf 
+arm-none-eabi-objdump -h -S Brakes_Controller_RTOS.elf  > "Brakes_Controller_RTOS.list"
    text	   data	    bss	    dec	    hex	filename
-  29168	    108	  21028	  50304	   c480	Brakes_Controller_RTOS.elf
+  32372	    112	  21024	  53508	   d104	Brakes_Controller_RTOS.elf
 Finished building: default.size.stdout
  
+Finished building: Brakes_Controller_RTOS.list
+ 
 
-21:55:14 Build Finished. 0 errors, 0 warnings. (took 226ms)
+23:58:50 Build Finished. 0 errors, 0 warnings. (took 573ms)
 
